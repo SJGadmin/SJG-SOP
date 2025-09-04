@@ -54,24 +54,21 @@ const App: React.FC = () => {
     let isNewChat = false;
 
     // --- Part 1: Synchronous UI Update ---
-    // This part runs instantly to give the user immediate feedback.
     if (!chatToUpdateId) {
         isNewChat = true;
         const newChatId = `chat-${Date.now()}`;
         const fallbackTitle = messageText.split(' ').slice(0, 5).join(' ');
         const newChat: ChatSession = {
             id: newChatId,
-            title: fallbackTitle, // Use fallback title initially
+            title: fallbackTitle,
             messages: [userMessage],
         };
         
         chatToUpdateId = newChatId;
         
-        // Immediately switch from Welcome Screen to the new chat view
         setActiveChatId(newChatId); 
         setChatSessions(prev => [newChat, ...prev]);
     } else {
-        // Just add the user's message to the current chat
         setChatSessions(prev => prev.map(session =>
             session.id === chatToUpdateId
                 ? { ...session, messages: [...session.messages, userMessage] }
@@ -79,13 +76,9 @@ const App: React.FC = () => {
         ));
     }
 
-    // Now that the UI has updated with the user's message, show the loading indicator.
     setIsLoading(true);
 
     // --- Part 2: Asynchronous API Calls ---
-    // These run in the background.
-
-    // If it was a new chat, generate a better title in the background.
     if (isNewChat) {
         try {
             const titleResponse = await fetch('/api/generate-title', {
@@ -93,21 +86,29 @@ const App: React.FC = () => {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ message: messageText }),
             });
-            if (titleResponse.ok) {
-                const data = await titleResponse.json();
-                if (data.title && typeof data.title === 'string' && data.title.trim() !== '') {
-                    // Update the title of the chat we just created.
-                    setChatSessions(prev => prev.map(session =>
-                        session.id === chatToUpdateId ? { ...session, title: data.title } : session
-                    ));
-                }
+
+            if (!titleResponse.ok) {
+                 let errorDetails = `Title generation failed: ${titleResponse.status} ${titleResponse.statusText}`;
+                 try {
+                     const errorData = await titleResponse.json();
+                     if (errorData && errorData.error) {
+                         errorDetails = `Title generation failed: ${errorData.error}`;
+                     }
+                 } catch (e) { /* ignore json parse error */ }
+                 throw new Error(errorDetails);
+            }
+
+            const data = await titleResponse.json();
+            if (data.title && typeof data.title === 'string' && data.title.trim() !== '') {
+                setChatSessions(prev => prev.map(session =>
+                    session.id === chatToUpdateId ? { ...session, title: data.title } : session
+                ));
             }
         } catch (error) {
             console.error("Could not generate smart title, using fallback:", error);
         }
     }
     
-    // Now, get the assistant's response.
     try {
         const apiResponse = await fetch('/api/chat', {
             method: 'POST',
@@ -118,7 +119,16 @@ const App: React.FC = () => {
         });
 
         if (!apiResponse.ok) {
-            throw new Error(`API error: ${apiResponse.statusText}`);
+            let errorDetails = `API error: ${apiResponse.status} ${apiResponse.statusText}`;
+            try {
+                const errorData = await apiResponse.json();
+                if (errorData && errorData.error) {
+                    errorDetails = errorData.error;
+                }
+            } catch (e) {
+                // If the response isn't JSON, stick with the status text
+            }
+            throw new Error(errorDetails);
         }
         
         const assistantResponseData: StructuredResponse = await apiResponse.json();
