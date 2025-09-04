@@ -1,0 +1,5 @@
+{
+  "name": "SJG SOP Assistant",
+  "description": "A specialized chatbot for an internal real estate team to get answers from Standard Operating Procedures (SOPs).",
+  "requestFramePermissions": []
+}
