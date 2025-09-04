@@ -37,13 +37,16 @@ async function fetchSopsFromSlite(apiKey: string): Promise<string> {
     });
 
     if (!searchResponse.ok) {
-        throw new Error(`Failed to search for notes on Slite API. Status: ${searchResponse.status} ${searchResponse.statusText}`);
+        const errorText = await searchResponse.text();
+        throw new Error(`Failed to search for notes on Slite API. Status: ${searchResponse.status} ${searchResponse.statusText}. Response: ${errorText}`);
     }
 
-    const notesList: SliteNoteSearchResult[] = await searchResponse.json();
+    const searchResult = await searchResponse.json();
+    // The list of notes is nested inside a 'data' property in the response object
+    const notesList: SliteNoteSearchResult[] = searchResult.data;
 
-    if (!notesList || notesList.length === 0) {
-        console.log("No SOPs found in Slite.");
+    if (!notesList || !Array.isArray(notesList) || notesList.length === 0) {
+        console.log("No SOPs found in Slite or response format was unexpected.");
         return "[]"; // No SOPs found
     }
 
