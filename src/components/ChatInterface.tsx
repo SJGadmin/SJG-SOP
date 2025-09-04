@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import type { ChatSession, Message } from '../types';
+import type { ChatSession, Message } from '../../types';
 import MessageBubble from './MessageBubble';
 import WelcomeScreen from './WelcomeScreen';
 

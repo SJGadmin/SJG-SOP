@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import type { ChatSession } from '../types';
+import type { ChatSession } from '../../types';
 
 interface SidebarProps {
   chatSessions: ChatSession[];

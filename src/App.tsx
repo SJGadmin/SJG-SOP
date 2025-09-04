@@ -1,8 +1,9 @@
 
+
 import React, { useState, useEffect, useCallback } from 'react';
 import Sidebar from './components/Sidebar';
 import ChatInterface from './components/ChatInterface';
-import { ChatSession, Sender, Message, StructuredResponse } from './types';
+import { ChatSession, Sender, Message, StructuredResponse } from '../types';
 
 const App: React.FC = () => {
   const [chatSessions, setChatSessions] = useState<ChatSession[]>([]);
