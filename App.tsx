@@ -61,6 +61,12 @@ const App: React.FC = () => {
     let chatToUpdateId = activeChatId;
     let isNewChat = false;
 
+    // Prepare the message history for the API call *before* queuing the state update.
+    const currentActiveSession = chatSessions.find(s => s.id === activeChatId);
+    const messagesForApi = currentActiveSession
+        ? [...currentActiveSession.messages, userMessage]
+        : [userMessage];
+
     // --- Part 1: Synchronous UI Update ---
     if (!chatToUpdateId) {
         isNewChat = true;
@@ -123,7 +129,7 @@ const App: React.FC = () => {
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ message: messageText }),
+            body: JSON.stringify({ messages: messagesForApi }), // Send the full history
         });
 
         if (!apiResponse.ok) {
@@ -168,7 +174,7 @@ const App: React.FC = () => {
     } finally {
         setIsLoading(false);
     }
-  }, [activeChatId]);
+  }, [activeChatId, chatSessions]);
 
   const activeSession = chatSessions.find((session) => session.id === activeChatId) || null;
   

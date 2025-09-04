@@ -1,7 +1,7 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { StructuredResponse } from '../types';
+import { StructuredResponse, Message, Sender } from '../types';
 
 // This is a Vercel serverless function
 // https://vercel.com/docs/functions/serverless-functions
@@ -111,10 +111,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(405).json({ error: 'Method Not Allowed' });
     }
 
-    const { message } = req.body;
+    const { messages }: { messages: Message[] } = req.body;
 
-    if (!message || typeof message !== 'string') {
-        return res.status(400).json({ error: 'Message is required and must be a string.' });
+    if (!messages || !Array.isArray(messages) || messages.length === 0) {
+        return res.status(400).json({ error: 'Messages are required and must be a non-empty array.' });
     }
 
     if (!process.env.API_KEY || !process.env.SLITE_API_KEY) {
@@ -132,20 +132,42 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         1.  **Accuracy is Paramount:** Your answers MUST be derived exclusively from the content of the provided SOPs. Do not use external knowledge or invent information. Your personality should never compromise the accuracy of the information.
         2.  **Engaging Personality:** Start your responses with a friendly greeting (e.g., "Happy to help!", "Alright, let's take a look at that for you.", "Great question!"). You can sprinkle in clever real estate puns or light humor where appropriate (e.g., "Let's get this deal closed!").
         3.  **Cite Your Sources:** Every answer that provides SOP information must cite the exact 'title' of the SOP document(s) used in the 'sources' field. This is non-negotiable.
-        4.  **Clarify First, Then Conclude:** If a user's question is vague, ambiguous, or could refer to multiple SOPs, your first response MUST be to ask a clarifying question. Only if you are certain no relevant SOP exists after considering the query should you trigger the "not found" response.
-        5.  **Handle "Not Found":** If, after careful consideration, you determine that no SOP covers the user's request, you MUST respond with the exact JSON object: \`{"isNotFound": true}\`.
-        6.  **Handle "Out of Scope":** If the user asks for non-SOP work (like creative writing, jokes, or general knowledge outside of real estate), you must stay in character but gently decline. Respond with the exact JSON object: \`{"isOutOfScope": true}\`.
-        7.  **Structured Responses:** Your final output must always be a JSON object adhering to the specified schema.
+        4.  **Prioritize Answering Over Clarifying:** Your main goal is to be helpful and provide an answer.
+            - If a user's question is broad (e.g., "tell me about operations"), you should find all relevant SOPs and provide a comprehensive summary.
+            - Only ask a clarifying question if a query is completely ambiguous and could lead to a factually incorrect answer. Avoid clarification loops.
+        5.  **Use Chat History:** The entire conversation is provided. Use the context of previous messages to understand the user's intent. If you have already asked for clarification, use the user's next message to provide a direct answer.
+        6.  **Handle "Not Found":** If you are certain no SOP covers the user's request, respond with the exact JSON object: \`{"isNotFound": true}\`. Do not ask for clarification if you know there is no relevant SOP.
+        7.  **Handle "Out of Scope":** If the user asks for non-SOP work (like creative writing or jokes), respond with the exact JSON object: \`{"isOutOfScope": true}\`.
+        8.  **Structured Responses:** Your final output must always be a JSON object adhering to the specified schema.
 
         **Provided SOPs from Slite:**
         ${sopContentForAI}
         `;
         
-        // 3. Call the Gemini API
+        // 3. Convert message history to Gemini's format
+        const geminiContents = messages
+            .map((msg) => {
+              let textContent: string | null = null;
+              if (typeof msg.content === 'string') {
+                textContent = msg.content;
+              } else if (msg.content.clarification) {
+                textContent = msg.content.clarification;
+              }
+        
+              if (!textContent) return null;
+        
+              return {
+                role: msg.sender === Sender.USER ? 'user' : 'model',
+                parts: [{ text: textContent }],
+              };
+            })
+            .filter((item): item is { role: string; parts: { text: string }[] } => item !== null);
+
+        // 4. Call the Gemini API
         const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
         const response = await ai.models.generateContent({
             model: "gemini-2.5-flash",
-            contents: message,
+            contents: geminiContents,
             config: {
                 systemInstruction: systemInstruction,
                 responseMimeType: "application/json",
