@@ -1,7 +1,9 @@
 
+
 import { GoogleGenAI, Type } from "@google/genai";
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { StructuredResponse, Message, Sender } from '../types';
+// FIX: Changed import to allow 'Sender' enum to be used as a value.
+import { type StructuredResponse, type Message, Sender } from '../src/types';
 
 // This is a Vercel serverless function
 // https://vercel.com/docs/functions/serverless-functions
