@@ -6,45 +6,70 @@ import { StructuredResponse } from '../types';
 // This is a Vercel serverless function
 // https://vercel.com/docs/functions/serverless-functions
 
-interface SliteNote {
+// Type for the result from /v1/search-notes
+interface SliteNoteSearchResult {
+    id: string;
+    title: string;
+}
+
+// Type for the result from /v1/notes/:id
+interface SliteNoteDetails {
     id: string;
     title: string;
     plaintext: string;
 }
 
-interface SliteSearchResponse {
-    data: SliteNote[];
-    has_more: boolean;
-    next_cursor: string | null;
-}
-
 /**
- * Fetches all documents from your Slite workspace using the search endpoint.
- * In a production environment, you might want to add caching here.
+ * Fetches all documents from your Slite workspace.
+ * This is a two-step process:
+ * 1. Use the /search-notes endpoint to get a list of all notes.
+ * 2. For each note ID, fetch the full content.
  */
 async function fetchSopsFromSlite(apiKey: string): Promise<string> {
-    const response = await fetch('https://api.slite.com/v1/notes/search', {
-        method: 'POST', // Use POST for the search endpoint
+    // Step 1: Use the /v1/search-notes endpoint to find all notes.
+    const searchResponse = await fetch('https://api.slite.com/v1/search-notes', {
+        method: 'POST',
         headers: {
             'Authorization': `Bearer ${apiKey}`,
             'Content-Type': 'application/json',
         },
-        body: JSON.stringify({}), // An empty body searches for all notes
+        // An empty query should return all notes.
+        body: JSON.stringify({ query: '' }),
     });
 
-    if (!response.ok) {
-        // This detailed error will be caught by the main handler and sent to the client.
-        throw new Error(`Failed to fetch from Slite API. Status: ${response.status} ${response.statusText}`);
+    if (!searchResponse.ok) {
+        throw new Error(`Failed to search for notes on Slite API. Status: ${searchResponse.status} ${searchResponse.statusText}`);
     }
 
-    const searchResult: SliteSearchResponse = await response.json();
-    const notes = searchResult.data;
-    
-    // Format the notes into a simplified structure for the AI.
-    const formattedSops = notes.map(note => ({
+    const notesList: SliteNoteSearchResult[] = await searchResponse.json();
+
+    if (!notesList || notesList.length === 0) {
+        console.log("No SOPs found in Slite.");
+        return "[]"; // No SOPs found
+    }
+
+    // Step 2: For each note found, fetch its full content.
+    // This runs all fetches in parallel for efficiency.
+    const noteDetailPromises = notesList.map(noteInfo =>
+        fetch(`https://api.slite.com/v1/notes/${noteInfo.id}`, {
+            headers: { 'Authorization': `Bearer ${apiKey}` }
+        }).then(res => {
+            if (!res.ok) {
+                // Log the error but don't throw, so one failed note doesn't break the whole app
+                console.error(`Failed to fetch details for note ${noteInfo.id}. Status: ${res.status}`);
+                return null;
+            }
+            return res.json() as Promise<SliteNoteDetails>;
+        })
+    );
+
+    // Wait for all detail fetches to complete and filter out any that failed (returned null)
+    const noteDetails = (await Promise.all(noteDetailPromises)).filter(Boolean) as SliteNoteDetails[];
+
+    // Step 3: Format the notes with content for the AI.
+    const formattedSops = noteDetails.map(note => ({
         title: note.title,
-        // We use plaintext content as a summary. You could further process this.
-        content: note.plaintext.substring(0, 500) + (note.plaintext.length > 500 ? '...' : ''), 
+        content: note.plaintext.substring(0, 500) + (note.plaintext.length > 500 ? '...' : ''),
     }));
 
     return JSON.stringify(formattedSops, null, 2);
