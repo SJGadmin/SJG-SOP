@@ -1,7 +1,13 @@
 {
+  "$schema": "https://openapi.vercel.sh/vercel.json",
   "functions": {
     "api/**/*.ts": {
-      "maxDuration": 30
+      "maxDuration": 30,
+      "memory": 1024
     }
+  },
+  "env": {
+    "API_KEY": "@api-key",
+    "SLITE_API_KEY": "@slite-api-key"
   }
 }
