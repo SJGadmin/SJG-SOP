@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import type { ChatSession } from '../../types';
 
@@ -11,6 +12,9 @@ interface SidebarProps {
 
 const Sidebar: React.FC<SidebarProps> = ({ chatSessions, activeChatId, onNewChat, onSelectChat, onDeleteChat }) => {
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
+  const [isTesting, setIsTesting] = useState(false);
+  const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
+
 
   const handleMenuClick = (e: React.MouseEvent, sessionId: string) => {
     e.stopPropagation();
@@ -22,6 +26,21 @@ const Sidebar: React.FC<SidebarProps> = ({ chatSessions, activeChatId, onNewChat
     onDeleteChat(sessionId);
     setMenuOpenId(null);
   };
+  
+  const handleTestConnection = async () => {
+    setIsTesting(true);
+    setTestResult(null);
+    try {
+        const response = await fetch('/api/test-slite', { method: 'POST' });
+        const data = await response.json();
+        setTestResult({ success: response.ok, message: data.message });
+    } catch (error) {
+        setTestResult({ success: false, message: 'A network error occurred.' });
+    } finally {
+        setIsTesting(false);
+    }
+  };
+
 
   return (
     <div className="flex flex-col h-screen bg-[#000000] text-white w-64 p-4">
@@ -71,6 +90,21 @@ const Sidebar: React.FC<SidebarProps> = ({ chatSessions, activeChatId, onNewChat
           ))}
         </ul>
       </div>
+
+       <div className="mt-auto pt-4 border-t border-gray-700">
+            <button
+                onClick={handleTestConnection}
+                disabled={isTesting}
+                className="w-full bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded-lg transition-colors text-sm disabled:bg-gray-800 disabled:cursor-wait"
+            >
+                {isTesting ? 'Testing...' : 'Test Slite Connection'}
+            </button>
+            {testResult && (
+                <div className={`mt-2 text-xs p-2 rounded ${testResult.success ? 'bg-green-800 text-green-200' : 'bg-red-800 text-red-200'}`}>
+                    {testResult.message}
+                </div>
+            )}
+        </div>
     </div>
   );
 };

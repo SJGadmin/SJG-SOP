@@ -34,7 +34,7 @@ async function fetchSopsFromSlite(apiKey: string, userQuery: string): Promise<Sl
         method: 'GET',
         headers: {
             'x-slite-api-key': apiKey,
-            'Content-Type': 'application/json',
+            'Accept': 'application/json',
         },
     });
 
@@ -56,7 +56,10 @@ async function fetchSopsFromSlite(apiKey: string, userQuery: string): Promise<Sl
 
     const noteDetailPromises = notesList.map(noteInfo =>
         fetch(`https://api.slite.com/v1/notes/${noteInfo.id}`, {
-            headers: { 'x-slite-api-key': apiKey }
+            headers: { 
+                'x-slite-api-key': apiKey,
+                'Accept': 'application/json'
+            }
         }).then(res => {
             if (!res.ok) {
                 console.error(`Failed to fetch details for note ${noteInfo.id}. Status: ${res.status}`);
