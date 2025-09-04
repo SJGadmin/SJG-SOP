@@ -1,12 +1,6 @@
-
-
-
 import { GoogleGenAI, Type } from "@google/genai";
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { type StructuredResponse, type Message, Sender } from '../types';
-
-// This is a Vercel serverless function
-// https://vercel.com/docs/functions/serverless-functions
 
 // Type for the result from /v1/search-notes
 interface SliteNoteSearchResult {
@@ -22,61 +16,93 @@ interface SliteNoteDetails {
 }
 
 /**
- * Fetches all documents from your Slite workspace.
- * This is a two-step process:
- * 1. Use the /search-notes endpoint to get a list of all notes.
- * 2. For each note ID, fetch the full content.
+ * Fetches all documents from your Slite workspace with improved error handling.
  */
 async function fetchSopsFromSlite(apiKey: string): Promise<string> {
-    // Step 1: Use the /v1/search-notes endpoint to find all notes using GET and query params.
-    const searchUrl = 'https://api.slite.com/v1/search-notes?query='; // Empty query to get all
-    const searchResponse = await fetch(searchUrl, {
-        method: 'GET',
-        headers: {
-            'x-slite-api-key': apiKey,
-            'Content-Type': 'application/json',
-        },
-    });
+    try {
+        console.log("Starting Slite API fetch...");
+        
+        // Step 1: Use the /v1/search-notes endpoint to find all notes
+        const searchUrl = 'https://api.slite.com/v1/search-notes?query=';
+        console.log("Calling Slite search API:", searchUrl);
+        
+        const searchResponse = await fetch(searchUrl, {
+            method: 'GET',
+            headers: {
+                'x-slite-api-key': apiKey,
+                'Content-Type': 'application/json',
+            },
+        });
 
-    if (!searchResponse.ok) {
-        const errorText = await searchResponse.text();
-        throw new Error(`Failed to search for notes on Slite API. Status: ${searchResponse.status} ${searchResponse.statusText}. Response: ${errorText}`);
-    }
+        console.log("Slite search response status:", searchResponse.status);
 
-    const searchResult = await searchResponse.json();
-    // The list of notes is nested inside a 'data' property in the response object
-    const notesList: SliteNoteSearchResult[] = searchResult.data;
+        if (!searchResponse.ok) {
+            const errorText = await searchResponse.text();
+            console.error("Slite search API error:", errorText);
+            throw new Error(`Failed to search for notes on Slite API. Status: ${searchResponse.status} ${searchResponse.statusText}. Response: ${errorText}`);
+        }
 
-    if (!notesList || !Array.isArray(notesList) || notesList.length === 0) {
-        console.log("No SOPs found in Slite or response format was unexpected.");
-        return "[]"; // No SOPs found
-    }
+        const searchResult = await searchResponse.json();
+        console.log("Search result structure:", Object.keys(searchResult));
+        
+        // The list of notes is nested inside a 'data' property in the response object
+        const notesList: SliteNoteSearchResult[] = searchResult.data;
 
-    // Step 2: For each note found, fetch its full content.
-    // This runs all fetches in parallel for efficiency.
-    const noteDetailPromises = notesList.map(noteInfo =>
-        fetch(`https://api.slite.com/v1/notes/${noteInfo.id}`, {
-            headers: { 'x-slite-api-key': apiKey }
-        }).then(res => {
-            if (!res.ok) {
-                // Log the error but don't throw, so one failed note doesn't break the whole app
-                console.error(`Failed to fetch details for note ${noteInfo.id}. Status: ${res.status}`);
+        if (!notesList || !Array.isArray(notesList)) {
+            console.log("No notes found or unexpected response format:", searchResult);
+            return JSON.stringify([], null, 2);
+        }
+
+        console.log(`Found ${notesList.length} notes`);
+
+        if (notesList.length === 0) {
+            return JSON.stringify([], null, 2);
+        }
+
+        // Step 2: Fetch details for each note (limit to first 10 to avoid timeouts)
+        const notesToFetch = notesList.slice(0, 10);
+        console.log(`Fetching details for ${notesToFetch.length} notes`);
+
+        const noteDetailPromises = notesToFetch.map(async (noteInfo, index) => {
+            try {
+                console.log(`Fetching note ${index + 1}/${notesToFetch.length}: ${noteInfo.id}`);
+                const response = await fetch(`https://api.slite.com/v1/notes/${noteInfo.id}`, {
+                    headers: { 'x-slite-api-key': apiKey }
+                });
+                
+                if (!response.ok) {
+                    console.error(`Failed to fetch details for note ${noteInfo.id}. Status: ${response.status}`);
+                    return null;
+                }
+                
+                return await response.json() as SliteNoteDetails;
+            } catch (error) {
+                console.error(`Error fetching note ${noteInfo.id}:`, error);
                 return null;
             }
-            return res.json() as Promise<SliteNoteDetails>;
-        })
-    );
+        });
 
-    // Wait for all detail fetches to complete and filter out any that failed (returned null)
-    const noteDetails = (await Promise.all(noteDetailPromises)).filter(Boolean) as SliteNoteDetails[];
+        // Wait for all detail fetches to complete
+        const noteDetails = (await Promise.all(noteDetailPromises)).filter(Boolean) as SliteNoteDetails[];
+        console.log(`Successfully fetched ${noteDetails.length} note details`);
 
-    // Step 3: Format the notes with content for the AI.
-    const formattedSops = noteDetails.map(note => ({
-        title: note.title,
-        content: note.plaintext.substring(0, 500) + (note.plaintext.length > 500 ? '...' : ''),
-    }));
+        // Step 3: Format the notes with content for the AI
+        const formattedSops = noteDetails.map(note => ({
+            title: note.title,
+            content: note.plaintext ? note.plaintext.substring(0, 500) + (note.plaintext.length > 500 ? '...' : '') : "No content available",
+        }));
 
-    return JSON.stringify(formattedSops, null, 2);
+        console.log("Formatted SOPs count:", formattedSops.length);
+        return JSON.stringify(formattedSops, null, 2);
+
+    } catch (error) {
+        console.error("Error in fetchSopsFromSlite:", error);
+        // Return empty array instead of throwing to prevent complete failure
+        return JSON.stringify([{
+            title: "Error fetching SOPs",
+            content: "Unable to retrieve SOPs from Slite at this time. Please try again later."
+        }], null, 2);
+    }
 }
 
 const responseSchema = {
@@ -104,27 +130,42 @@ const responseSchema = {
     },
 };
 
-
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+    console.log("Chat API called with method:", req.method);
+    
     if (req.method !== 'POST') {
+        console.log("Method not allowed:", req.method);
         return res.status(405).json({ error: 'Method Not Allowed' });
     }
 
-    const { messages }: { messages: Message[] } = req.body;
-
-    if (!messages || !Array.isArray(messages) || messages.length === 0) {
-        return res.status(400).json({ error: 'Messages are required and must be a non-empty array.' });
-    }
-
-    if (!process.env.API_KEY || !process.env.SLITE_API_KEY) {
-        return res.status(500).json({ error: 'API keys for Gemini and Slite are not configured.' });
-    }
-
     try {
+        const { messages }: { messages: Message[] } = req.body;
+
+        if (!messages || !Array.isArray(messages) || messages.length === 0) {
+            console.log("Invalid messages payload:", messages);
+            return res.status(400).json({ error: 'Messages are required and must be a non-empty array.' });
+        }
+
+        console.log("Received messages count:", messages.length);
+
+        // Check environment variables
+        if (!process.env.API_KEY) {
+            console.error("Missing API_KEY environment variable");
+            return res.status(500).json({ error: 'Gemini API key is not configured.' });
+        }
+
+        if (!process.env.SLITE_API_KEY) {
+            console.error("Missing SLITE_API_KEY environment variable");
+            return res.status(500).json({ error: 'Slite API key is not configured.' });
+        }
+
+        console.log("Environment variables are set");
+
         // 1. Fetch live SOP data from Slite
+        console.log("Fetching SOPs from Slite...");
         const sopContentForAI = await fetchSopsFromSlite(process.env.SLITE_API_KEY);
 
-        // 2. Construct the system prompt with the live data and new personality
+        // 2. Construct the system prompt with the live data
         const systemInstruction = `You are the SJG SOP Assistant, a sharp, friendly, and slightly witty AI partner for a top-tier real estate team. Your primary mission is to provide clear, accurate answers based *only* on the provided Standard Operating Procedures (SOPs). While you are professional, you're also approachable and can use light, real estate-themed humor or puns to make interactions more engaging.
 
         **Core Rules:**
@@ -155,6 +196,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             };
         });
 
+        console.log("Prepared Gemini contents, calling AI...");
+
         // 4. Call the Gemini API
         const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
         const response = await ai.models.generateContent({
@@ -168,14 +211,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             },
         });
 
+        console.log("Received response from Gemini");
+
         const jsonText = (response.text ?? '{}').trim();
+        console.log("Response text length:", jsonText.length);
+        
         const assistantResponse: StructuredResponse = JSON.parse(jsonText);
         
+        console.log("Successfully parsed response, returning to client");
         return res.status(200).json(assistantResponse);
 
     } catch (error) {
         console.error("Error in serverless function:", error);
         const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
-        return res.status(500).json({ error: `Failed to get response from AI service. Details: ${errorMessage}` });
+        
+        // Return a structured error response
+        const errorResponse: StructuredResponse = {
+            summary: "I'm having trouble processing your request right now. Please try again in a moment.",
+            isNotFound: false,
+            isOutOfScope: false
+        };
+        
+        return res.status(500).json(errorResponse);
     }
 }
