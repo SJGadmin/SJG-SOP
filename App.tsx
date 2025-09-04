@@ -43,6 +43,14 @@ const App: React.FC = () => {
     setActiveChatId(id);
   };
 
+  const handleDeleteChat = (chatId: string) => {
+    setChatSessions(prev => prev.filter(session => session.id !== chatId));
+    // If the active chat is the one being deleted, return to the welcome screen.
+    if (activeChatId === chatId) {
+      setActiveChatId(null);
+    }
+  };
+
   const handleSendMessage = useCallback(async (messageText: string) => {
     const userMessage: Message = {
         id: `msg-${Date.now()}`,
@@ -171,6 +179,7 @@ const App: React.FC = () => {
         activeChatId={activeChatId}
         onNewChat={handleNewChat}
         onSelectChat={handleSelectChat}
+        onDeleteChat={handleDeleteChat}
       />
       <ChatInterface
         session={activeSession}

@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, Type } from "@google/genai";
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { StructuredResponse } from '../types';
@@ -16,34 +17,29 @@ interface SliteNote {
  * In a production environment, you might want to add caching here.
  */
 async function fetchSopsFromSlite(apiKey: string): Promise<string> {
-    try {
-        const response = await fetch('https://api.slite.com/v1/notes', {
-            method: 'GET',
-            headers: {
-                'Authorization': `Bearer ${apiKey}`,
-                'Content-Type': 'application/json',
-            },
-        });
+    const response = await fetch('https://api.slite.com/v1/notes', {
+        method: 'GET',
+        headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+        },
+    });
 
-        if (!response.ok) {
-            throw new Error(`Slite API error: ${response.status} ${response.statusText}`);
-        }
-
-        const notes: SliteNote[] = await response.json();
-        
-        // Format the notes into a simplified structure for the AI.
-        const formattedSops = notes.map(note => ({
-            title: note.title,
-            // We use plaintext content as a summary. You could further process this.
-            content: note.plaintext.substring(0, 500) + (note.plaintext.length > 500 ? '...' : ''), 
-        }));
-
-        return JSON.stringify(formattedSops, null, 2);
-
-    } catch (error) {
-        console.error("Failed to fetch SOPs from Slite:", error);
-        throw new Error("Could not load SOP data from Slite.");
+    if (!response.ok) {
+        // This detailed error will be caught by the main handler and sent to the client.
+        throw new Error(`Failed to fetch from Slite API. Status: ${response.status} ${response.statusText}`);
     }
+
+    const notes: SliteNote[] = await response.json();
+    
+    // Format the notes into a simplified structure for the AI.
+    const formattedSops = notes.map(note => ({
+        title: note.title,
+        // We use plaintext content as a summary. You could further process this.
+        content: note.plaintext.substring(0, 500) + (note.plaintext.length > 500 ? '...' : ''), 
+    }));
+
+    return JSON.stringify(formattedSops, null, 2);
 }
 
 const responseSchema = {
