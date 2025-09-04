@@ -138,30 +138,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         5.  **Use Chat History:** The entire conversation is provided. Use the context of previous messages to understand the user's intent. If you have already asked for clarification, use the user's next message to provide a direct answer.
         6.  **Handle "Not Found":** If you are certain no SOP covers the user's request, respond with the exact JSON object: \`{"isNotFound": true}\`. Do not ask for clarification if you know there is no relevant SOP.
         7.  **Handle "Out of Scope":** If the user asks for non-SOP work (like creative writing or jokes), respond with the exact JSON object: \`{"isOutOfScope": true}\`.
-        8.  **Structured Responses:** Your final output must always be a JSON object adhering to the specified schema.
+        8.  **Structured Responses:** Your final output must always be a JSON object adhering to the specified schema. Your previous model responses are provided in the history as stringified JSON - use them for context.
 
         **Provided SOPs from Slite:**
         ${sopContentForAI}
         `;
         
         // 3. Convert message history to Gemini's format
-        const geminiContents = messages
-            .map((msg) => {
-              let textContent: string | null = null;
-              if (typeof msg.content === 'string') {
-                textContent = msg.content;
-              } else if (msg.content.clarification) {
-                textContent = msg.content.clarification;
-              }
-        
-              if (!textContent) return null;
-        
-              return {
-                role: msg.sender === Sender.USER ? 'user' : 'model',
-                parts: [{ text: textContent }],
-              };
-            })
-            .filter((item): item is { role: string; parts: { text: string }[] } => item !== null);
+        const geminiContents = messages.map((msg) => {
+            const textContent = typeof msg.content === 'string'
+              ? msg.content // User message
+              : JSON.stringify(msg.content); // Assistant's structured response
+      
+            return {
+              role: msg.sender === Sender.USER ? 'user' : 'model',
+              parts: [{ text: textContent }],
+            };
+        });
 
         // 4. Call the Gemini API
         const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
