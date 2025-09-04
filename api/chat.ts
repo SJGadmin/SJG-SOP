@@ -12,17 +12,24 @@ interface SliteNote {
     plaintext: string;
 }
 
+interface SliteSearchResponse {
+    data: SliteNote[];
+    has_more: boolean;
+    next_cursor: string | null;
+}
+
 /**
- * Fetches all documents from your Slite workspace.
+ * Fetches all documents from your Slite workspace using the search endpoint.
  * In a production environment, you might want to add caching here.
  */
 async function fetchSopsFromSlite(apiKey: string): Promise<string> {
-    const response = await fetch('https://api.slite.com/v1/notes', {
-        method: 'GET',
+    const response = await fetch('https://api.slite.com/v1/notes/search', {
+        method: 'POST', // Use POST for the search endpoint
         headers: {
             'Authorization': `Bearer ${apiKey}`,
             'Content-Type': 'application/json',
         },
+        body: JSON.stringify({}), // An empty body searches for all notes
     });
 
     if (!response.ok) {
@@ -30,7 +37,8 @@ async function fetchSopsFromSlite(apiKey: string): Promise<string> {
         throw new Error(`Failed to fetch from Slite API. Status: ${response.status} ${response.statusText}`);
     }
 
-    const notes: SliteNote[] = await response.json();
+    const searchResult: SliteSearchResponse = await response.json();
+    const notes = searchResult.data;
     
     // Format the notes into a simplified structure for the AI.
     const formattedSops = notes.map(note => ({
