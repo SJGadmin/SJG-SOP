@@ -29,7 +29,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             },
         });
 
-        const title = response.text.trim();
+        const title = (response.text ?? 'New Chat').trim();
         
         return res.status(200).json({ title });
 

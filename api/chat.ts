@@ -2,7 +2,6 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-// FIX: Changed import to allow 'Sender' enum to be used as a value.
 import { type StructuredResponse, type Message, Sender } from '../src/types';
 
 // This is a Vercel serverless function
@@ -168,7 +167,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             },
         });
 
-        const jsonText = response.text.trim();
+        const jsonText = (response.text ?? '{}').trim();
         const assistantResponse: StructuredResponse = JSON.parse(jsonText);
         
         return res.status(200).json(assistantResponse);

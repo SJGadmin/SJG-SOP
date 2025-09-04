@@ -1,6 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-// FIX: Changed path to be absolute from src root to resolve module issue.
-import type { ChatSession, Message } from 'src/types';
+import type { ChatSession, Message } from '../types';
 import MessageBubble from './MessageBubble';
 import WelcomeScreen from './WelcomeScreen';
 
@@ -50,7 +49,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ session, isLoading, onSen
                 <WelcomeScreen onExampleClick={onSendMessage} />
             ) : (
                 <div className="space-y-4">
-                    {session.messages.map((msg) => (
+                    {session.messages.map((msg: Message) => (
                         <MessageBubble key={msg.id} message={msg} />
                     ))}
                     {isLoading && <MessageBubble message={{id: 'loading', sender: 'assistant', content: 'loading'} as Message} />}

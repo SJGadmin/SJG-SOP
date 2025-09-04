@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import type { ChatSession } from '../types';
+// FIX: Corrected import path for ChatSession type
+import type { ChatSession } from '../src/types';
 
 interface SidebarProps {
   chatSessions: ChatSession[];

@@ -1,6 +1,5 @@
 import React from 'react';
-// FIX: Changed path to be absolute from src root to resolve module issue.
-import { Message, Sender, StructuredResponse } from 'src/types';
+import { Message, Sender, StructuredResponse } from '../types';
 
 interface MessageBubbleProps {
   message: Message;
@@ -65,7 +64,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
           <div>
             <h3 className="font-semibold mb-1">Steps:</h3>
             <ul className="list-decimal list-inside space-y-1">
-              {response.steps.map((step, i) => <li key={i}>{step}</li>)}
+              {response.steps.map((step: string, i: number) => <li key={i}>{step}</li>)}
             </ul>
           </div>
         )}
@@ -73,7 +72,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
           <div>
             <h3 className="font-semibold mb-1">Notes:</h3>
             <ul className="list-disc list-inside space-y-1">
-              {response.notes.map((note, i) => <li key={i}>{note}</li>)}
+              {response.notes.map((note: string, i: number) => <li key={i}>{note}</li>)}
             </ul>
           </div>
         )}
@@ -81,7 +80,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
           <div className="pt-2 border-t mt-4">
             <h3 className="font-semibold mb-1">Sources:</h3>
             <ul className="list-none space-y-1">
-              {response.sources.map((source, i) => <li key={i} className="text-sm text-gray-600">{source}</li>)}
+              {response.sources.map((source: string, i: number) => <li key={i} className="text-sm text-gray-600">{source}</li>)}
             </ul>
           </div>
         )}

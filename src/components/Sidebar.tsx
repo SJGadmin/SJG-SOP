@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
-// FIX: Changed path to be absolute from src root to resolve module issue.
-import type { ChatSession } from 'src/types';
+import type { ChatSession } from '../types';
 
 interface SidebarProps {
   chatSessions: ChatSession[];

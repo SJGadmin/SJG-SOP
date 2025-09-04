@@ -1,5 +1,6 @@
 import React from 'react';
-import { Message, Sender, StructuredResponse } from '../types';
+// FIX: Corrected import path for types
+import { Message, Sender, StructuredResponse } from '../src/types';
 
 interface MessageBubbleProps {
   message: Message;

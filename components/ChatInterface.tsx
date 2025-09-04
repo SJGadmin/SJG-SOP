@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
-import type { ChatSession, Message } from '../types';
+// FIX: Corrected import path for ChatSession and Message types
+import type { ChatSession, Message } from '../src/types';
 import MessageBubble from './MessageBubble';
 import WelcomeScreen from './WelcomeScreen';
 
