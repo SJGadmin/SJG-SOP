@@ -13,6 +13,19 @@ const LoadingIndicator: React.FC = () => (
     </div>
 );
 
+const DebugInfo: React.FC<{ response: StructuredResponse }> = ({ response }) => {
+    if (response.debug_sliteQuery === undefined || response.debug_sliteDocsFound === undefined) {
+        return null;
+    }
+    return (
+        <div className="mt-3 pt-2 border-t border-gray-300 text-xs text-gray-600">
+            <p className="font-semibold">Debug Info:</p>
+            <p className="font-mono">Searched Slite for: "{response.debug_sliteQuery}"</p>
+            <p className="font-mono">Documents found: {response.debug_sliteDocsFound}</p>
+        </div>
+    );
+};
+
 const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
   const isUser = message.sender === Sender.USER;
 
@@ -35,26 +48,39 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
 
     if (response.isNotFound) {
       return (
-        <p>
-          I couldn’t find an SOP that covers this. You can request one here:{' '}
-          <a
-            href="https://docs.google.com/forms/d/e/1FAIpQLSc3lITA26L8MvnlYJxpZ-SmhU0Qus5bQRHprB0XDWRhFtX4GQ/viewform?usp=dialog"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-[#38B6FF] font-semibold hover:underline"
-          >
-            Request a New SOP
-          </a>
-        </p>
+        <div>
+          <p>
+            I couldn’t find an SOP that covers this. You can request one here:{' '}
+            <a
+              href="https://docs.google.com/forms/d/e/1FAIpQLSc3lITA26L8MvnlYJxpZ-SmhU0Qus5bQRHprB0XDWRhFtX4GQ/viewform?usp=dialog"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[#38B6FF] font-semibold hover:underline"
+            >
+              Request a New SOP
+            </a>
+          </p>
+          <DebugInfo response={response} />
+        </div>
       );
     }
     
     if (response.isOutOfScope) {
-      return <p>I can only answer using our internal SOPs. Would you like me to search for an SOP on this topic?</p>
+        return (
+            <div>
+                <p>I can only answer using our internal SOPs. Would you like me to search for an SOP on this topic?</p>
+                <DebugInfo response={response} />
+            </div>
+        );
     }
     
     if (response.clarification) {
-      return <p>{response.clarification}</p>;
+        return (
+            <div>
+                <p>{response.clarification}</p>
+                <DebugInfo response={response} />
+            </div>
+        );
     }
 
     return (
@@ -84,6 +110,8 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
             </ul>
           </div>
         )}
+        {/* Always show debug info if available */}
+        <DebugInfo response={response} />
       </div>
     );
   };

@@ -12,6 +12,10 @@ export interface StructuredResponse {
   clarification?: string;
   isNotFound?: boolean;
   isOutOfScope?: boolean;
+
+  // Debug fields to provide transparency on the backend search process
+  debug_sliteQuery?: string;
+  debug_sliteDocsFound?: number;
 }
 
 export interface Message {

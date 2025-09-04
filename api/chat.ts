@@ -1,7 +1,4 @@
 
-
-
-
 import { GoogleGenAI, Type } from "@google/genai";
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { type StructuredResponse, type Message, Sender } from '../types.js';
@@ -22,15 +19,16 @@ interface SliteNoteDetails {
     plaintext: string;
 }
 
+interface SliteFetchResult {
+    formattedSopsString: string;
+    documentsFound: number;
+}
+
 /**
  * Fetches relevant documents from your Slite workspace based on a user query.
- * This is a two-step process:
- * 1. Use the /search-notes endpoint to find notes matching the query.
- * 2. For each note ID, fetch the full content.
  */
-async function fetchSopsFromSlite(apiKey: string, userQuery: string): Promise<string> {
+async function fetchSopsFromSlite(apiKey: string, userQuery: string): Promise<SliteFetchResult> {
     console.log(`Searching Slite with query: "${userQuery}"`);
-    // Step 1: Use the /v1/search-notes endpoint to find notes using the user's query.
     const searchUrl = `https://api.slite.com/v1/search-notes?query=${encodeURIComponent(userQuery)}`;
     const searchResponse = await fetch(searchUrl, {
         method: 'GET',
@@ -49,20 +47,20 @@ async function fetchSopsFromSlite(apiKey: string, userQuery: string): Promise<st
     const searchResult = await searchResponse.json();
     const notesList: SliteNoteSearchResult[] = searchResult.data;
     
-    console.log(`Found ${notesList?.length || 0} potential SOP(s) in Slite.`);
+    const documentsFound = notesList?.length || 0;
+    console.log(`Found ${documentsFound} potential SOP(s) in Slite.`);
 
     if (!notesList || !Array.isArray(notesList) || notesList.length === 0) {
-        return "[]"; // No SOPs found, return an empty array string.
+        return { formattedSopsString: "[]", documentsFound: 0 };
     }
 
-    // Step 2: For each note found, fetch its full content.
     const noteDetailPromises = notesList.map(noteInfo =>
         fetch(`https://api.slite.com/v1/notes/${noteInfo.id}`, {
             headers: { 'x-slite-api-key': apiKey }
         }).then(res => {
             if (!res.ok) {
                 console.error(`Failed to fetch details for note ${noteInfo.id}. Status: ${res.status}`);
-                return null; // Skip failed fetches
+                return null;
             }
             return res.json() as Promise<SliteNoteDetails>;
         })
@@ -70,7 +68,6 @@ async function fetchSopsFromSlite(apiKey: string, userQuery: string): Promise<st
 
     const noteDetails = (await Promise.all(noteDetailPromises)).filter(Boolean) as SliteNoteDetails[];
 
-    // Step 3: Format the notes for the AI, including title and content.
     const formattedSops = noteDetails.map(note => ({
         title: note.title,
         content: note.plaintext.substring(0, 1000) + (note.plaintext.length > 1000 ? '...' : ''),
@@ -78,7 +75,10 @@ async function fetchSopsFromSlite(apiKey: string, userQuery: string): Promise<st
     
     console.log(`Returning ${formattedSops.length} full SOPs to the AI.`);
 
-    return JSON.stringify(formattedSops, null, 2);
+    return {
+        formattedSopsString: JSON.stringify(formattedSops, null, 2),
+        documentsFound,
+    };
 }
 
 const responseSchema = {
@@ -129,10 +129,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     try {
-        // 1. Fetch live SOP data from Slite based on the user's latest query
-        const sopContentForAI = await fetchSopsFromSlite(process.env.SLITE_API_KEY, userQuery);
+        const { formattedSopsString, documentsFound } = await fetchSopsFromSlite(process.env.SLITE_API_KEY, userQuery);
 
-        // 2. Construct the system prompt with the live data and personality
         const systemInstruction = `You are the SJG SOP Assistant, a sharp, friendly, and slightly witty AI partner for a top-tier real estate team. Your primary mission is to provide clear, accurate answers based *only* on the provided Standard Operating Procedures (SOPs).
 
         **Core Rules:**
@@ -142,18 +140,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         4.  **Prioritize Answering:** Your main goal is to be helpful. If a user's question is broad, use the provided SOPs to give a comprehensive summary. Only ask for clarification if a query is completely ambiguous.
         5.  **Use Chat History:** The entire conversation is provided. Use the context of previous messages to understand the user's intent.
         6.  **Handle Empty Search Results:** If the "Provided SOPs from Slite" section is empty (i.e., "[]"), it means my search found no relevant documents. In this case, you MUST return \`{"isNotFound": true}\` immediately. Do not invent an answer.
-        7.  **Handle "Out of Scope":** If the user asks for non-SOP work (like creative writing), respond with the exact JSON object: \`{"isOutOfScope": true}\`.
+        7.  **Handle "Out of Scope":** If the user asks for something clearly unrelated to real estate SOPs (like writing a poem, telling a joke), respond with \`{"isOutOfScope": true}\`. For general questions about your capabilities (e.g., "What SOPs do you have?"), simply explain your purpose as an SOP assistant and do not set any flags.
         8.  **Structured Responses:** Your final output must always be a JSON object adhering to the specified schema.
 
         **Provided SOPs from Slite (based on user query):**
-        ${sopContentForAI}
+        ${formattedSopsString}
         `;
         
-        // 3. Convert message history to Gemini's format
         const geminiContents = messages.map((msg) => {
             const textContent = typeof msg.content === 'string'
-              ? msg.content // User message
-              : JSON.stringify(msg.content); // Assistant's structured response
+              ? msg.content
+              : JSON.stringify(msg.content); 
       
             return {
               role: msg.sender === Sender.USER ? 'user' : 'model',
@@ -161,7 +158,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             };
         });
 
-        // 4. Call the Gemini API
         const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
         const response = await ai.models.generateContent({
             model: "gemini-2.5-flash",
@@ -176,6 +172,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         const jsonText = (response.text ?? '{}').trim();
         const assistantResponse: StructuredResponse = JSON.parse(jsonText);
+
+        // Add debug info to the response for frontend transparency
+        assistantResponse.debug_sliteQuery = userQuery;
+        assistantResponse.debug_sliteDocsFound = documentsFound;
         
         return res.status(200).json(assistantResponse);
 
