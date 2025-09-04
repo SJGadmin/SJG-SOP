@@ -24,7 +24,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const sliteResponse = await fetch(testUrl, {
             method: 'GET',
             headers: {
-                'x-slite-api-key': process.env.SLITE_API_KEY,
+                'Authorization': `Bearer ${process.env.SLITE_API_KEY}`,
                 'Accept': 'application/json',
             },
         });
@@ -39,7 +39,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 }
             } catch (e) {
                 // If the response isn't JSON, use the raw text
-                errorMessage = `Slite API returned a non-JSON error: ${await sliteResponse.text()}`;
+                const rawText = await sliteResponse.text();
+                errorMessage = `Slite API returned a non-JSON error (${sliteResponse.status}): ${rawText || 'No response body'}`;
             }
             throw new Error(errorMessage);
         }

@@ -33,7 +33,7 @@ async function fetchSopsFromSlite(apiKey: string, userQuery: string): Promise<Sl
     const searchResponse = await fetch(searchUrl, {
         method: 'GET',
         headers: {
-            'x-slite-api-key': apiKey,
+            'Authorization': `Bearer ${apiKey}`,
             'Accept': 'application/json',
         },
     });
@@ -57,7 +57,7 @@ async function fetchSopsFromSlite(apiKey: string, userQuery: string): Promise<Sl
     const noteDetailPromises = notesList.map(noteInfo =>
         fetch(`https://api.slite.com/v1/notes/${noteInfo.id}`, {
             headers: { 
-                'x-slite-api-key': apiKey,
+                'Authorization': `Bearer ${apiKey}`,
                 'Accept': 'application/json'
             }
         }).then(res => {
