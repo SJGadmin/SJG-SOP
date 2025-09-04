@@ -1,20 +1,50 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# SJG SOP Assistant
 
-# Run and deploy your AI Studio app
+A specialized chatbot for an internal real estate team to get answers from Standard Operating Procedures (SOPs).
 
-This contains everything you need to run your app locally.
+## Tech Stack
 
-View your app in AI Studio: https://ai.studio/apps/drive/1ckrOVClIUVIWJ3iwGSLaYO1vaStbli4c
+- **Frontend**: React, TypeScript, Vite, Tailwind CSS
+- **Backend**: Vercel Serverless Functions
+- **AI**: Google Gemini API
+- **Data Source**: Slite API
 
-## Run Locally
+## Running the Project Locally
 
-**Prerequisites:**  Node.js
+### 1. Environment Variables
 
+This project requires API keys to function. The Vercel Serverless Functions (`/api` directory) will automatically read these from a `.env` file during local development.
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+Create a file named `.env` in the root of the project and add your secret keys:
+
+```
+API_KEY="your_google_gemini_api_key"
+SLITE_API_KEY="your_slite_api_key"
+```
+
+### 2. Install Dependencies
+
+If you haven't already, install the project dependencies, including the Vercel CLI which is needed to run the serverless functions locally.
+
+```bash
+npm install
+```
+
+### 3. Run the Development Server
+
+This command starts the Vercel development environment, which serves both the Vite frontend and the serverless API functions, allowing them to communicate correctly.
+
+```bash
+npm run dev
+```
+
+The application should now be running, typically on `http://localhost:3000`.
+
+## Deployment
+
+This application is configured for deployment on Vercel. 
+
+1. Push your code to a Git repository (GitHub, GitLab, etc.).
+2. Import the repository into a new Vercel project.
+3. In the Vercel project settings, go to **Settings > Environment Variables** and add `API_KEY` and `SLITE_API_KEY` with their respective values.
+4. Vercel will automatically build and deploy the application upon new pushes to the main branch.
