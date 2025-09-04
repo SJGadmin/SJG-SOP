@@ -75,7 +75,7 @@ async function fetchSopsFromSlite(apiKey: string, userQuery: string): Promise<Sl
         })
     );
 
-    const noteDetailsResults = (await Promise.all(noteDetailPromises)).filter(Boolean);
+    const noteDetailsResults = (await Promise.all(noteDetailPromises)).filter((result): result is { data: SliteNoteDetails } => result !== null);
     const noteDetails = noteDetailsResults.map(result => result.data);
 
     const formattedSops = noteDetails.map(note => ({
