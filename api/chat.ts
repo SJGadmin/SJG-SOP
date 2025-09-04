@@ -26,15 +26,14 @@ interface SliteNoteDetails {
  * 2. For each note ID, fetch the full content.
  */
 async function fetchSopsFromSlite(apiKey: string): Promise<string> {
-    // Step 1: Use the /v1/search-notes endpoint to find all notes.
-    const searchResponse = await fetch('https://api.slite.com/v1/search-notes', {
-        method: 'POST',
+    // Step 1: Use the /v1/search-notes endpoint to find all notes using GET and query params.
+    const searchUrl = 'https://api.slite.com/v1/search-notes?query='; // Empty query to get all
+    const searchResponse = await fetch(searchUrl, {
+        method: 'GET',
         headers: {
-            'Authorization': `Bearer ${apiKey}`,
+            'x-slite-api-key': apiKey,
             'Content-Type': 'application/json',
         },
-        // An empty query should return all notes.
-        body: JSON.stringify({ query: '' }),
     });
 
     if (!searchResponse.ok) {
@@ -52,7 +51,7 @@ async function fetchSopsFromSlite(apiKey: string): Promise<string> {
     // This runs all fetches in parallel for efficiency.
     const noteDetailPromises = notesList.map(noteInfo =>
         fetch(`https://api.slite.com/v1/notes/${noteInfo.id}`, {
-            headers: { 'Authorization': `Bearer ${apiKey}` }
+            headers: { 'x-slite-api-key': apiKey }
         }).then(res => {
             if (!res.ok) {
                 // Log the error but don't throw, so one failed note doesn't break the whole app
