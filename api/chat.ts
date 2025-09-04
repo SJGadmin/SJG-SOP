@@ -85,24 +85,21 @@ const responseSchema = {
             type: Type.ARRAY, 
             items: { type: Type.STRING },
             description: "A list of actionable steps from the SOP.",
-            nullable: true 
         },
         notes: { 
             type: Type.ARRAY, 
             items: { type: Type.STRING },
             description: "A list of important notes or reminders from the SOP.",
-            nullable: true 
         },
         sources: { 
             type: Type.ARRAY, 
             items: { type: Type.STRING },
             description: "An array containing the exact 'title' of the SOP(s) used for the answer." 
         },
-        clarification: { type: Type.STRING, description: "A question to ask the user for clarification.", nullable: true },
-        isNotFound: { type: Type.BOOLEAN, description: "Set to true if no relevant SOP is found.", nullable: true },
-        isOutOfScope: { type: Type.BOOLEAN, description: "Set to true if the query is outside the scope of SOPs.", nullable: true },
+        clarification: { type: Type.STRING, description: "A question to ask the user for clarification." },
+        isNotFound: { type: Type.BOOLEAN, description: "Set to true if no relevant SOP is found." },
+        isOutOfScope: { type: Type.BOOLEAN, description: "Set to true if the query is outside the scope of SOPs." },
     },
-    required: ["summary", "sources"]
 };
 
 
