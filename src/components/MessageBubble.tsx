@@ -36,7 +36,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
     if (response.isNotFound) {
       return (
         <p>
-          That one isn't on the market yet, but you can go here to request it:{' '}
+          I couldn’t find an SOP that covers this. You can request one here:{' '}
           <a
             href="https://docs.google.com/forms/d/e/1FAIpQLSc3lITA26L8MvnlYJxpZ-SmhU0Qus5bQRHprB0XDWRhFtX4GQ/viewform?usp=dialog"
             target="_blank"
