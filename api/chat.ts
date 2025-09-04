@@ -1,9 +1,10 @@
 
 
 
+
 import { GoogleGenAI, Type } from "@google/genai";
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { type StructuredResponse, type Message, Sender } from '../types';
+import { type StructuredResponse, type Message, Sender } from '../types.js';
 
 // This is a Vercel serverless function
 // https://vercel.com/docs/functions/serverless-functions
