@@ -6,7 +6,7 @@ import { type StructuredResponse, type Message, Sender } from '../types.js';
 // This is a Vercel serverless function
 // https://vercel.com/docs/functions/serverless-functions
 
-// Type for the result from /v1/search-notes
+// Type for the result from /v1/search/notes
 interface SliteNoteSearchResult {
     id: string;
     title: string;
@@ -28,20 +28,26 @@ interface SliteFetchResult {
  * Fetches relevant documents from your Slite workspace based on a user query.
  */
 async function fetchSopsFromSlite(apiKey: string, userQuery: string): Promise<SliteFetchResult> {
+    const trimmedApiKey = apiKey.trim();
     console.log(`Searching Slite with query: "${userQuery}"`);
-    const searchUrl = `https://api.slite.com/v1/search-notes?query=${encodeURIComponent(userQuery)}`;
+    
+    // CORRECTED: Use the correct endpoint, HTTP method, and body structure for searching.
+    const searchUrl = `https://api.slite.com/v1/search/notes`;
     const searchResponse = await fetch(searchUrl, {
-        method: 'GET',
+        method: 'POST',
         headers: {
-            'Authorization': `Bearer ${apiKey}`,
+            'Authorization': `Bearer ${trimmedApiKey}`,
             'Accept': 'application/json',
+            'Content-Type': 'application/json',
         },
+        body: JSON.stringify({ query: userQuery }),
     });
 
     if (!searchResponse.ok) {
         const errorText = await searchResponse.text();
         console.error(`Failed to search Slite. Status: ${searchResponse.status}. Response: ${errorText}`);
-        throw new Error(`Failed to search for notes on Slite API.`);
+        // Do not throw; instead, return an empty result so the AI can handle it gracefully.
+        return { formattedSopsString: "[]", documentsFound: 0 };
     }
 
     const searchResult = await searchResponse.json();
@@ -57,7 +63,7 @@ async function fetchSopsFromSlite(apiKey: string, userQuery: string): Promise<Sl
     const noteDetailPromises = notesList.map(noteInfo =>
         fetch(`https://api.slite.com/v1/notes/${noteInfo.id}`, {
             headers: { 
-                'Authorization': `Bearer ${apiKey}`,
+                'Authorization': `Bearer ${trimmedApiKey}`,
                 'Accept': 'application/json'
             }
         }).then(res => {
@@ -65,11 +71,12 @@ async function fetchSopsFromSlite(apiKey: string, userQuery: string): Promise<Sl
                 console.error(`Failed to fetch details for note ${noteInfo.id}. Status: ${res.status}`);
                 return null;
             }
-            return res.json() as Promise<SliteNoteDetails>;
+            return res.json() as Promise<{data: SliteNoteDetails}>; // Slite wraps note details in a 'data' object
         })
     );
 
-    const noteDetails = (await Promise.all(noteDetailPromises)).filter(Boolean) as SliteNoteDetails[];
+    const noteDetailsResults = (await Promise.all(noteDetailPromises)).filter(Boolean);
+    const noteDetails = noteDetailsResults.map(result => result.data);
 
     const formattedSops = noteDetails.map(note => ({
         title: note.title,
@@ -80,7 +87,7 @@ async function fetchSopsFromSlite(apiKey: string, userQuery: string): Promise<Sl
 
     return {
         formattedSopsString: JSON.stringify(formattedSops, null, 2),
-        documentsFound,
+        documentsFound: formattedSops.length,
     };
 }
 

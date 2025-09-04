@@ -1,7 +1,7 @@
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
-interface SliteNote {
+interface SliteSearchResult {
     id: string;
     title: string;
 }
@@ -19,39 +19,46 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         });
     }
 
+    // Use the search endpoint, as it's the core functionality of the app.
+    const testUrl = 'https://api.slite.com/v1/search/notes';
+    const testQuery = 'SOP'; // A generic query likely to return results.
+
     try {
-        const testUrl = 'https://api.slite.com/v1/notes?limit=5';
+        const apiKey = process.env.SLITE_API_KEY.trim();
+
         const sliteResponse = await fetch(testUrl, {
-            method: 'GET',
+            method: 'POST',
             headers: {
-                'Authorization': `Bearer ${process.env.SLITE_API_KEY}`,
+                'Authorization': `Bearer ${apiKey}`,
                 'Accept': 'application/json',
+                'Content-Type': 'application/json',
             },
+            body: JSON.stringify({ query: testQuery, limit: 5 }),
         });
 
         if (!sliteResponse.ok) {
             let errorMessage = `Slite API returned status ${sliteResponse.status}.`;
             try {
-                // Slite often provides a structured error message
                 const errorData = await sliteResponse.json();
                 if (errorData?.error?.message) {
                     errorMessage = `Slite API Error: ${errorData.error.message}`;
                 }
             } catch (e) {
-                // If the response isn't JSON, use the raw text
                 const rawText = await sliteResponse.text();
-                errorMessage = `Slite API returned a non-JSON error (${sliteResponse.status}): ${rawText || 'No response body'}`;
+                if (rawText) {
+                  errorMessage += ` Response: ${rawText}`;
+                }
             }
             throw new Error(errorMessage);
         }
 
         const result = await sliteResponse.json();
-        const notes: SliteNote[] = result.data;
+        const notes: SliteSearchResult[] = result.data;
         const noteCount = notes?.length || 0;
 
         return res.status(200).json({ 
             success: true, 
-            message: `Successfully connected to Slite and found ${noteCount} recent note(s).`,
+            message: `Successfully connected and found ${noteCount} note(s) matching the query '${testQuery}'.`,
             data: notes.map(n => n.title),
         });
 
